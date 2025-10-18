@@ -1,0 +1,35 @@
+version: '3'
+
+vars:
+  DB_DSN: "app_user:app_password@tcp(127.0.0.1:3306)/eventsourcing?parseTime=true"
+
+tasks:
+  docker-compose:up:
+    desc: Start MySQL with docker-compose
+    cmds:
+      - docker-compose up -d
+
+  docker-compose:down:
+    desc: Stop and remove containers
+    cmds:
+      - docker-compose down
+
+  db:migrate:up:
+    desc: Run database migrations (up)
+    cmds:
+      - goose -dir internal/infrastructure/eventstore/migration mysql "{{.DB_DSN}}" up
+
+  db:migrate:down:
+    desc: Rollback database migrations (down)
+    cmds:
+      - goose -dir internal/infrastructure/eventstore/migration mysql "{{.DB_DSN}}" down
+
+  db:migrate:status:
+    desc: Check migration status
+    cmds:
+      - goose -dir internal/infrastructure/eventstore/migration mysql "{{.DB_DSN}}" status
+
+  db:migrate:create:
+    desc: "Create a new migration (usage: task db:migrate:create -- migration_name)"
+    cmds:
+      - goose -dir internal/infrastructure/eventstore/migration create {{.CLI_ARGS}} sql
