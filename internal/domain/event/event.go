@@ -1,4 +1,9 @@
 package event
 
-// Event represents a domain event
-type Event interface{}
+import "time"
+
+type Event interface {
+	AggregateID() string
+	AggregateVersion() int
+	OccurredAt() time.Time
+}

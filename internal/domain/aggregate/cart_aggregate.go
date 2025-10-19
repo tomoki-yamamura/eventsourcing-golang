@@ -11,6 +11,7 @@ import (
 type CartAggregate struct {
 	AggregateID uuid.UUID
 	CartItems   []uuid.UUID
+	Version     int
 }
 
 func NewCartAggregate() *CartAggregate {
@@ -19,31 +20,37 @@ func NewCartAggregate() *CartAggregate {
 	}
 }
 
-func (c *CartAggregate) ApplyAddItemEvent(cmd command.AddItemCommand) ([]event.Event, error) {
+func (c *CartAggregate) ExecuteAddItemCommand(cmd command.AddItemCommand) ([]event.Event, error) {
 	var events []event.Event
+	nextVersion := c.Version + 1
 
-	// If this is a new aggregate, create it first
 	if c.AggregateID == uuid.Nil {
-		cartCreatedEvent := &event.CartCreatedEvent{
-			AggregateID: cmd.AggregateID,
-		}
+		cartCreatedEvent := event.NewCartCreatedEvent(cmd.AggregateID, nextVersion)
 		events = append(events, cartCreatedEvent)
+		nextVersion++
 	}
 
-	// Business rule: maximum 3 items per cart
-	if len(c.CartItems) >= 3 {
-		return nil, errors.New("can only add 3 items")
+	if err := c.validateCartItemLimit(); err != nil {
+		return nil, err
 	}
 
-	itemAddedEvent := &event.ItemAddedEvent{
-		AggregateID: cmd.AggregateID,
-		Description: cmd.Description,
-		Image:       cmd.Image,
-		Price:       cmd.Price,
-		ItemID:      cmd.ItemID,
-		ProductID:   cmd.ProductID,
-	}
+	itemAddedEvent := event.NewItemAddedEvent(
+		cmd.AggregateID,
+		nextVersion,
+		cmd.Description,
+		cmd.Image,
+		cmd.Price,
+		cmd.ItemID,
+		cmd.ProductID,
+	)
 	events = append(events, itemAddedEvent)
 
 	return events, nil
+}
+
+func (c *CartAggregate) validateCartItemLimit() error {
+	if len(c.CartItems) >= 3 {
+		return errors.New("can only add 3 items")
+	}
+	return nil
 }
