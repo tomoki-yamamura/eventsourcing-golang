@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	events "github.com/tomoki-yamamura/eventsourcing-golang/internal/domain/event"
+	"github.com/tomoki-yamamura/eventsourcing-golang/internal/domain/event"
 	"github.com/tomoki-yamamura/eventsourcing-golang/internal/domain/repository"
 )
 
@@ -16,7 +16,7 @@ func NewRepository() repository.EventStoreRepository {
 	return &Repository{}
 }
 
-func (r *Repository) LoadEvents(ctx context.Context, aggregateID uuid.UUID) ([]events.Event, error) {
+func (r *Repository) LoadEvents(ctx context.Context, aggregateID uuid.UUID) ([]event.Event, error) {
 	tx, err := GetTx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction: %w", err)
@@ -35,7 +35,7 @@ func (r *Repository) LoadEvents(ctx context.Context, aggregateID uuid.UUID) ([]e
 	}
 	defer rows.Close()
 
-	var eventList []events.Event
+	var eventList []event.Event
 	for rows.Next() {
 		var eventType string
 		var eventData []byte
@@ -56,7 +56,7 @@ func (r *Repository) LoadEvents(ctx context.Context, aggregateID uuid.UUID) ([]e
 	return eventList, nil
 }
 
-func (r *Repository) SaveEvents(ctx context.Context, aggregateID uuid.UUID, eventList []events.Event, expectedVersion int) error {
+func (r *Repository) SaveEvents(ctx context.Context, aggregateID uuid.UUID, eventList []event.Event, expectedVersion int) error {
 	tx, err := GetTx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get transaction: %w", err)
@@ -97,34 +97,34 @@ func (r *Repository) SaveEvents(ctx context.Context, aggregateID uuid.UUID, even
 	return nil
 }
 
-func (r *Repository) serializeEvent(event events.Event) (string, []byte, int, error) {
-	switch e := event.(type) {
-	case *events.CartCreatedEvent:
+func (r *Repository) serializeEvent(e event.Event) (string, []byte, int, error) {
+	switch evt := e.(type) {
+	case *event.CartCreatedEvent:
 		data, err := json.Marshal(map[string]interface{}{
-			"aggregateID": e.AggregateID(),
+			"aggregateID": evt.AggregateID(),
 		})
-		return "CartCreatedEvent", data, e.AggregateVersion(), err
+		return "CartCreatedEvent", data, evt.AggregateVersion(), err
 
-	case *events.ItemAddedEvent:
+	case *event.ItemAddedEvent:
 		data, err := json.Marshal(map[string]interface{}{
-			"aggregateID": e.AggregateID(),
-			"description": e.Description,
-			"image":       e.Image,
-			"price":       e.Price,
-			"itemID":      e.ItemID.String(),
-			"productID":   e.ProductID.String(),
+			"aggregateID": evt.AggregateID(),
+			"description": evt.Description,
+			"image":       evt.Image,
+			"price":       evt.Price,
+			"itemID":      evt.ItemID.String(),
+			"productID":   evt.ProductID.String(),
 		})
-		return "ItemAddedEvent", data, e.AggregateVersion(), err
+		return "ItemAddedEvent", data, evt.AggregateVersion(), err
 
 	default:
-		return "", nil, 0, fmt.Errorf("unknown event type: %T", event)
+		return "", nil, 0, fmt.Errorf("unknown event type: %T", e)
 	}
 }
 
-func (r *Repository) deserializeEvent(eventType string, eventData []byte, aggregateID uuid.UUID, version int) (events.Event, error) {
+func (r *Repository) deserializeEvent(eventType string, eventData []byte, aggregateID uuid.UUID, version int) (event.Event, error) {
 	switch eventType {
 	case "CartCreatedEvent":
-		return events.NewCartCreatedEvent(aggregateID, version), nil
+		return event.NewCartCreatedEvent(aggregateID, version), nil
 
 	case "ItemAddedEvent":
 		var data map[string]interface{}
@@ -135,7 +135,7 @@ func (r *Repository) deserializeEvent(eventType string, eventData []byte, aggreg
 		itemID, _ := uuid.Parse(data["itemID"].(string))
 		productID, _ := uuid.Parse(data["productID"].(string))
 
-		return events.NewItemAddedEvent(
+		return event.NewItemAddedEvent(
 			aggregateID,
 			version,
 			data["description"].(string),

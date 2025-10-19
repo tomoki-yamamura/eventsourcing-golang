@@ -31,7 +31,6 @@ func NewCartUsecase(eventStoreRepository repository.EventStoreRepository, transa
 func (u *cartUsecaseImpl) AddItem(ctx context.Context, input input.AddItemInput) (*output.AddItemResponse, error) {
 	var response *output.AddItemResponse
 	
-	// Wrap all database operations in a transaction
 	err := u.transaction.RWTx(ctx, func(ctx context.Context) error {
 		var aggregateID uuid.UUID
 		if input.AggregateID == nil {
@@ -77,7 +76,6 @@ func (u *cartUsecaseImpl) AddItem(ctx context.Context, input input.AddItemInput)
 			return err
 		}
 
-		// Create response within transaction scope
 		finalVersion := cart.Version + len(newEvents)
 		now := time.Now()
 
